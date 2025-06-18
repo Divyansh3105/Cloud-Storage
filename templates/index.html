@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold">Welcome, {{ session['username'] }}!</h2>
+        <a href="{{ url_for('logout') }}"
+            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors">Logout</a>
+    </div>
+
+    <div class="bg-gray-800 p-6 rounded-lg shadow mb-6">
+        <h3 class="text-xl font-semibold mb-4">Upload Files</h3>
+        <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" class="flex gap-4">
+            <input type="file" class="form-control bg-gray-700 border-gray-600 text-white" id="file" name="file"
+                required>
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Upload</button>
+        </form>
+    </div>
+
+    <div class="bg-gray-800 p-6 rounded-lg shadow">
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+            <h3 class="text-xl font-semibold">Your Files</h3>
+
+            <div class="flex flex-wrap gap-4">
+                <!-- Search Form -->
+                <form action="{{ url_for('search_files') }}" method="get" class="flex">
+                    <input type="text" name="q" placeholder="Search files..."
+                        value="{{ search_query if search_query else '' }}"
+                        class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-l-md focus:ring-blue-500 focus:border-blue-500">
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
+
+                <!-- Sort Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle" type="button" id="sortDropdown"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        Sort by:
+                        {% if sort_by == 'date' %}Date{% endif %}
+                        {% if sort_by == 'name' %}Name{% endif %}
+                        {% if sort_by == 'size' %}Size{% endif %}
+                        {% if sort_by == 'important' %}Importance{% endif %}
+                        ({{ sort_order if sort_order else 'desc' }})
+                    </button>
+                    <ul class="dropdown-menu bg-gray-700" aria-labelledby="sortDropdown">
+                        <li><a class="dropdown-item text-white hover:bg-gray-600"
+                                href="{{ url_for('sort_files', sort='date', order='desc') }}">Date (Newest)</a></li>
+                        <li><a class="dropdown-item text-white hover:bg-gray-600"
+                                href="{{ url_for('sort_files', sort='date', order='asc') }}">Date (Oldest)</a></li>
+                        <li><a class="dropdown-item text-white hover:bg-gray-600"
+                                href="{{ url_for('sort_files', sort='name', order='asc') }}">Name (A-Z)</a></li>
+                        <li><a class="dropdown-item text-white hover:bg-gray-600"
+                                href="{{ url_for('sort_files', sort='name', order='desc') }}">Name (Z-A)</a></li>
+                        <li><a class="dropdown-item text-white hover:bg-gray-600"
+                                href="{{ url_for('sort_files', sort='size', order='desc') }}">Size (Largest)</a></li>
+                        <li><a class="dropdown-item text-white hover:bg-gray-600"
+                                href="{{ url_for('sort_files', sort='size', order='asc') }}">Size (Smallest)</a></li>
+                        <li><a class="dropdown-item text-white hover:bg-gray-600"
+                                href="{{ url_for('sort_files', sort='important', order='desc') }}">Important First</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        {% if files %}
+        <ul class="space-y-3">
+            {% for file in files %}
+            <li
+                class="flex justify-between items-center p-4 bg-gray-700 rounded-lg {% if file.is_important %}border-l-4 border-yellow-500{% endif %}">
+                <div class="flex items-center gap-3">
+                    <span class="text-gray-300">
+                        {{ file.filename }}
+                        <span class="text-gray-400 text-sm">
+                            {% if file.filesize < 1024 %} {{ file.filesize }} bytes {% elif file.filesize < 1048576 %}
+                                {{ (file.filesize/1024)|round(1) }} KB {% elif file.filesize < 1073741824 %} {{
+                                (file.filesize/1048576)|round(1) }} MB {% else %} {{ (file.filesize/1073741824)|round(1)
+                                }} GB {% endif %} ({{ file.storage_type|upper }}) </span>
+                                {% if file.is_important %}
+                                <span class="text-yellow-500 text-sm"><i class="fas fa-star"></i> Important</span>
+                                {% endif %}
+                        </span>
+                </div>
+                <div class="flex gap-2">
+                    <a href="{{ url_for('download_file', filename=file.filename) }}"
+                        class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                        <i class="fas fa-download"></i>
+                    </a>
+
+                    <form action="{{ url_for('mark_important', filename=file.filename) }}" method="post">
+                        <button type="submit"
+                            class="px-3 py-1 {% if file.is_important %}bg-yellow-600{% else %}bg-gray-600{% endif %} text-white rounded hover:bg-yellow-700 text-sm">
+                            <i class="fas fa-star"></i>
+                        </button>
+                    </form>
+
+                    <form action="{{ url_for('delete_file', filename=file.filename) }}" method="post"
+                        onsubmit="return confirmDelete('{{ file.filename }}', {% if file.is_important %}true{% else %}false{% endif %})">
+                        <button type="submit" class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-gray-400">No files found.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function confirmDelete(filename, isImportant) {
+        if (isImportant) {
+            return confirm(`This file (${filename}) is marked as important. Are you sure you want to delete it?`) &&
+                confirm('Please confirm again - this file is important!');
+        }
+        return confirm(`Are you sure you want to delete ${filename}?`);
+    }
+</script>
+{% endblock %}
