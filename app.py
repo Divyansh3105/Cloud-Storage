@@ -97,6 +97,18 @@ def init_db():
             )
             """)
 
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS shared_files (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                file_id INT NOT NULL,
+                shared_with_user_id INT NOT NULL,
+                shared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (file_id) REFERENCES files(id),
+                FOREIGN KEY (shared_with_user_id) REFERENCES users(id)
+            )
+            """)
+
+
             conn.commit()
             cur.close()
             logger.info("Database tables created successfully")
